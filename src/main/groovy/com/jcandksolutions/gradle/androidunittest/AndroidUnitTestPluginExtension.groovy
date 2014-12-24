@@ -1,5 +1,7 @@
 package com.jcandksolutions.gradle.androidunittest
 
+import org.gradle.api.Action
+
 /**
  * Class that handles the extension of the plugin for configuration.
  */
@@ -9,6 +11,8 @@ public class AndroidUnitTestPluginExtension {
   private boolean mDownloadTestDependenciesJavadoc
   private boolean mDownloadDependenciesJavadoc
   private boolean mDownloadDependenciesSources
+  private SourceSetCreatorMap mSourceSets = new SourceSetCreatorMap()
+  private TestTaskCreatorMap mTestTasks = new TestTaskCreatorMap()
   /**
    * Retrieves the TestReleaseBuildType property which enables testing if release build types. Only
    * works on App projects, not library projects.
@@ -97,5 +101,38 @@ public class AndroidUnitTestPluginExtension {
    */
   public void setDownloadDependenciesJavadoc(boolean value) {
     mDownloadDependenciesJavadoc = value
+  }
+
+  /**
+   * Retrieves the SourceSets property which enables the configuration of source directories for
+   * tests.
+   * @return A map containing the sourceSets.
+   */
+  public SourceSetCreatorMap getSourceSets() {
+    return mSourceSets
+  }
+
+  /**
+   * Configures the sourceSets through an Action received from the build file.
+   * @param action The action to configure the sourceSets.
+   */
+  public void sourceSets(Action<Map<String, SourceSetConfig>> action) {
+    action.execute(mSourceSets)
+  }
+
+  /**
+   * Retrieves the TestTasks property which enables the configuration of the test tasks.
+   * @return A map containing the testTasks.
+   */
+  public TestTaskCreatorMap getTestTasks() {
+    return mTestTasks
+  }
+
+  /**
+   * Configures the testTasks through an Action received from the build file.
+   * @param action The action to configure the testTasks.
+   */
+  public void testTasks(Action<Map<String, TestTaskConfig>> action) {
+    action.execute(mTestTasks)
   }
 }

@@ -4,7 +4,6 @@ import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.api.logging.Logger
 import org.gradle.api.plugins.JavaBasePlugin
-import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.testing.TestReport
@@ -44,8 +43,11 @@ public class TaskManager {
   /**
    * Creates and configures the test task that runs the tests.
    * @param variant The wrapper of the variant we are creating the test tasks for.
+   * @param testTasks The testTasks configurations to read from.
    */
-  public void createTestTask(final VariantWrapper variant) {
+  public void createTestTask(final VariantWrapper variant, final TestTaskCreatorMap testTasks) {
+    TestTaskConfig all = testTasks["all"]
+    TestTaskConfig variantTest = testTasks["test$variant.completeName"]
     Test testTask = mProject.tasks.create("test$variant.completeName", Test)
     Task classesTask = configureClassesTask(variant)
     //make the test depend on the classesTask that handles the compilation and resources of tests
@@ -56,9 +58,7 @@ public class TaskManager {
     JavaCompile testCompileTask = configureTestCompileTask(variant)
     //Add the same sources of testCompile to the test task. not needed really
     testTask.inputs.source(testCompileTask.source)
-    Copy copyTask = createResourcesCopyTask(variant)
-    copyTask.dependsOn(variant.androidCompileTask)
-    testTask.dependsOn(copyTask)
+    testTask.dependsOn(variant.androidCompileTask)
     testTask.classpath = variant.testClasspath
     //set the location of the class files of the tests to run
     testTask.testClassesDir = testCompileTask.destinationDir
@@ -68,6 +68,19 @@ public class TaskManager {
     testTask.reports.html.destination = variant.variantReportDestination
     //Include all the class files that end in Test
     testTask.scanForTestClasses = false
+    configureTestTask(testTask, all, variantTest, variant)
+    testReportTask.reportOn(testTask)
+  }
+
+  private void configureTestTask(final Test testTask, final TestTaskConfig all, final TestTaskConfig variantTest, final VariantWrapper variant) {
+    testTask.debug = all.debug || variantTest.debug
+    testTask.maxParallelForks = variantTest.maxParallelForks > 0 ? variantTest.maxParallelForks : all.maxParallelForks > 0 ? all.maxParallelForks : 1
+    testTask.forkEvery = variantTest.forkEvery > 0 ? variantTest.forkEvery : all.forkEvery
+    testTask.minHeapSize = variantTest.minHeapSize ?: all.minHeapSize
+    testTask.maxHeapSize = variantTest.maxHeapSize ?: all.maxHeapSize
+    testTask.jvmArgs = variantTest.jvmArgs ?: all.jvmArgs
+    testTask.excludes = variantTest.excludes ?: all.excludes
+    testTask.includes = variantTest.includes ?: all.includes
     String pattern = System.properties.getProperty("test.single")
     String pattern2 = System.properties.getProperty("test${variant.completeName}.single")
     if (pattern != null) {
@@ -76,7 +89,7 @@ public class TaskManager {
     if (pattern2 != null) {
       testTask.include("**${File.separator}${pattern2}.class")
     }
-    if (pattern == null && pattern2 == null) {
+    if (pattern == null && pattern2 == null && variantTest.includes.empty && all.includes.empty) {
       testTask.include("**${File.separator}*Test.class")
     }
     // Add the path to the merged manifest, resources and assets as well as the main package name as system properties.
@@ -84,7 +97,7 @@ public class TaskManager {
     testTask.systemProperties['android.resources'] = variant.mergedResourcesDir
     testTask.systemProperties['android.assets'] = variant.mergedAssetsDir
     testTask.systemProperties['android.package'] = mPackageExtractor.packageName
-    testReportTask.reportOn(testTask)
+    testTask.systemProperties(variantTest.systemProperties.isEmpty() ? all.systemProperties : variantTest.systemProperties)
   }
 
   private TestReport getTestReportTask() {
@@ -127,12 +140,5 @@ public class TaskManager {
     testCompileTask.destinationDir = variant.compileDestinationDir
     testCompileTask.options.bootClasspath = mBootClasspath
     return testCompileTask
-  }
-
-  private Copy createResourcesCopyTask(final VariantWrapper variant) {
-    Copy resourcesCopyTask = mProject.tasks.create(variant.resourcesCopyTaskName, Copy)
-    resourcesCopyTask.from(variant.realMergedResourcesDir)
-    resourcesCopyTask.into(variant.mergedResourcesDir)
-    return resourcesCopyTask
   }
 }

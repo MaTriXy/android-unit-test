@@ -24,6 +24,8 @@ public class MainHandlerTest {
   private DefaultBuildType mBuildType
   private AndroidUnitTestPluginExtension mExtension
   private TaskManager mTaskManager
+  private SourceSetCreatorMap mSourceSets
+  private TestTaskCreatorMap mTestTasks
 
   @Before
   public void setUp() {
@@ -32,6 +34,8 @@ public class MainHandlerTest {
     mConfigurationManager = mProvider.provideConfigurationManager()
     mTaskManager = mProvider.provideTaskManager()
     mExtension = mProvider.provideExtension()
+    mSourceSets = mExtension.sourceSets
+    mTestTasks = mExtension.testTasks
     DefaultDomainObjectSet<BaseVariant> variants = mProvider.provideVariants()
     mVariant = mock(BaseVariant.class)
     mBuildType = mock(DefaultBuildType)
@@ -58,7 +62,7 @@ public class MainHandlerTest {
     mTarget.run()
     verify(mModelManager).register()
     verify(mConfigurationManager).createNewConfigurations()
-    verify(mTaskManager, never()).createTestTask(any(VariantWrapper.class))
+    verify(mTaskManager, never()).createTestTask(any(VariantWrapper.class), any(Map.class))
   }
 
   @Test
@@ -68,8 +72,8 @@ public class MainHandlerTest {
     mTarget.run()
     verify(mModelManager).register()
     verify(mConfigurationManager).createNewConfigurations()
-    verify(mVariantWrapper).configureSourceSet()
-    verify(mTaskManager).createTestTask(mVariantWrapper)
+    verify(mVariantWrapper).configureSourceSet(mSourceSets)
+    verify(mTaskManager).createTestTask(mVariantWrapper, mTestTasks)
     verify(mModelManager).registerArtifact(mVariantWrapper)
   }
 
@@ -80,8 +84,8 @@ public class MainHandlerTest {
     mTarget.run()
     verify(mModelManager).register()
     verify(mConfigurationManager).createNewConfigurations()
-    verify(mVariantWrapper).configureSourceSet()
-    verify(mTaskManager).createTestTask(mVariantWrapper)
+    verify(mVariantWrapper).configureSourceSet(mSourceSets)
+    verify(mTaskManager).createTestTask(mVariantWrapper, mTestTasks)
     verify(mModelManager).registerArtifact(mVariantWrapper)
   }
 }

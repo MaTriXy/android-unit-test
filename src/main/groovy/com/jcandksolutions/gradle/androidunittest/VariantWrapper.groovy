@@ -22,7 +22,6 @@ public abstract class VariantWrapper {
   protected final BaseVariant mVariant
   protected final TestVariant mTestVariant
   protected final Logger mLogger
-  protected ArrayList<File> mTestsSourcePath
   protected Configuration mConfiguration
   private final String mBootClasspath
   private FileCollection mClasspath
@@ -33,8 +32,6 @@ public abstract class VariantWrapper {
   private File mMergedResourcesDir
   private File mMergedManifest
   private File mMergedAssetsDir
-  private String mResourcesCopyTaskName
-  private String mRealMergedResourcesDir
   private List<String> mFlavorList
   private String mFlavorName
   private String mBuildTypeName
@@ -60,11 +57,29 @@ public abstract class VariantWrapper {
 
   /**
    * Configures the SourceSet with the Sourcepath, Classpath and Runpath.
+   * @param config The SourceSets configurations to read from.
    */
-  public void configureSourceSet() {
-    //Add standard resources directory
-    sourceSet.resources.srcDirs(mProject.file("src${File.separator}test${File.separator}resources"))
-    sourceSet.java.srcDirs = testsSourcePath
+  public void configureSourceSet(SourceSetCreatorMap config) {
+    List<File> sources = []
+    List<File> resources = []
+    resources.addAll(extractSourceDirs(config["test"], "test", "resources"))
+    sources.addAll(extractSourceDirs(config["test"], "test", "java"))
+    resources.addAll(extractSourceDirs(config["test${buildTypeName}"], "test${buildTypeName}", "resources"))
+    sources.addAll(extractSourceDirs(config["test${buildTypeName}"], "test${buildTypeName}", "java"))
+    if (hasFlavors) {
+      resources.addAll(extractSourceDirs(config["test${flavorName}"], "test${flavorName}", "resources"))
+      sources.addAll(extractSourceDirs(config["test${flavorName}"], "test${flavorName}", "java"))
+      resources.addAll(extractSourceDirs(config["test${flavorName}${buildTypeName}"], "test${flavorName}${buildTypeName}", "resources"))
+      sources.addAll(extractSourceDirs(config["test${flavorName}${buildTypeName}"], "test${flavorName}${buildTypeName}", "java"))
+      flavorList.each { String flavor ->
+        resources.addAll(extractSourceDirs(config["test${flavor}"], "test${flavor}", "resources"))
+        sources.addAll(extractSourceDirs(config["test${flavor}"], "test${flavor}", "java"))
+        resources.addAll(extractSourceDirs(config["test${flavor}${buildTypeName}"], "test${flavor}${buildTypeName}", "resources"))
+        sources.addAll(extractSourceDirs(config["test${flavor}${buildTypeName}"], "test${flavor}${buildTypeName}", "java"))
+      }
+    }
+    sourceSet.resources.srcDirs = resources
+    sourceSet.java.srcDirs = sources
     sourceSet.compileClasspath = classpath
     sourceSet.runtimeClasspath = runPath
     //Add this SourceSet to the classes task for compilation
@@ -72,32 +87,31 @@ public abstract class VariantWrapper {
   }
 
   /**
-   * Retrieves the sourcepath for the tests of this variant. It includes the standard test dir that
-   * has tests for all flavors, a dir for the buildType tests, a dir for each flavor in the variant
-   * and a dir for the variant. For example, the variant FreeBetaDebug will have the following dirs:
-   * <br/>
-   * <ul>
-   *   <li>src/test/java (main test dir)</li>
-   *   <li>src/testDebug/java (debug build type test dir)</li>
-   *   <li>src/testFree/java (free flavor tests dir)</li>
-   *   <li>src/testBeta/java (beta flavor tests dir)</li>
-   *   <li>src/testFreeBeta/java (variant tests dir)</li>
-   * </ul>
-   * @return The sourcePath.
+   * Extracts the list of files of the source dir.
+   * @param config The configuration to extract from.
+   * @param key The configuration name. One of the different combinations from the variant.
+   * @param type The type of info to extract, it can be {@code resources} or {@code java}.
+   * @return A list of files of the source dir.
    */
-  protected ArrayList<File> getTestsSourcePath() {
-    if (mTestsSourcePath == null) {
-      mTestsSourcePath = []
-      mTestsSourcePath.add(mProject.file("src${File.separator}test${File.separator}java"))
-      mTestsSourcePath.add(mProject.file("src${File.separator}test$buildTypeName${File.separator}java"))
-      mTestsSourcePath.add(mProject.file("src${File.separator}test$flavorName${File.separator}java"))
-      mTestsSourcePath.add(mProject.file("src${File.separator}test$flavorName$buildTypeName${File.separator}java"))
-      flavorList.each { String flavor ->
-        mTestsSourcePath.add(mProject.file("src${File.separator}test$flavor${File.separator}java"))
-        mTestsSourcePath.add(mProject.file("src${File.separator}test$flavor$buildTypeName${File.separator}java"))
-      }
+  protected List<File> extractSourceDirs(SourceSetConfig config, String key, String type) {
+    List<File> ret
+    if (config["$type"].overWritten) {
+      ret = []
+    } else {
+      ret = [mProject.file("src${File.separator}${key}${File.separator}${type}")]
     }
-    return mTestsSourcePath
+    config["$type"].srcDirs.each { String dir ->
+      ret.add(mProject.file(dir))
+    }
+    return ret
+  }
+
+  /**
+   * Retrieves whether the variant has flavors or just build type.
+   * @return {@code true} if the variant has one or more flavors, {@code false} otherwise.
+   */
+  protected boolean isHasFlavors() {
+    return mVariant.productFlavors.size() > 0
   }
 
   /**
@@ -121,13 +135,12 @@ public abstract class VariantWrapper {
   }
 
   /**
-   * Retrieves the path where the merged resources are copied. Usually in
-   * build/test-resources/$variantName/res.
-   * @return The dir with the copied merged resources.
+   * Retrieves the path string where the resources are merged by the Android plugin.
+   * @return The path string.
    */
   public File getMergedResourcesDir() {
     if (mMergedResourcesDir == null) {
-      mMergedResourcesDir = mProject.file("$mProject.buildDir${File.separator}test-resources${File.separator}$completeName${File.separator}res")
+      mMergedResourcesDir = mProject.file("$mProject.buildDir${File.separator}intermediates${File.separator}res${File.separator}$mVariant.dirName")
     }
     return mMergedResourcesDir
   }
@@ -280,29 +293,6 @@ public abstract class VariantWrapper {
       mRunPath = classpath.plus(mProject.files("$mProject.buildDir${File.separator}resources${File.separator}test$completeName")).plus(new SimpleFileCollection(compileDestinationDir))
     }
     return mRunPath
-  }
-
-  /**
-   * Retrieves the ResourcesCopyTask name.<br/>
-   * For example: copyFreeNormalDebugTestResources.
-   * @return The ResourcesCopyTaskName.
-   */
-  public String getResourcesCopyTaskName() {
-    if (mResourcesCopyTaskName == null) {
-      mResourcesCopyTaskName = "copy${completeName}TestResources"
-    }
-    return mResourcesCopyTaskName
-  }
-
-  /**
-   * Retrieves the path string where the resources are merged by the Android plugin.
-   * @return The path string.
-   */
-  public String getRealMergedResourcesDir() {
-    if (mRealMergedResourcesDir == null) {
-      mRealMergedResourcesDir = "$mProject.buildDir${File.separator}intermediates${File.separator}res${File.separator}$mVariant.dirName"
-    }
-    return mRealMergedResourcesDir
   }
 
   /**
