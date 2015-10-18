@@ -2,9 +2,13 @@ Android Unit Test
 =================
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.jcandksolutions.gradle/android-unit-test/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.jcandksolutions.gradle/android-unit-test)
 [![Build Status](https://travis-ci.org/JCAndKSolutions/android-unit-test.svg?branch=master)](https://travis-ci.org/JCAndKSolutions/android-unit-test)
-[![Coverage Status](https://coveralls.io/repos/JCAndKSolutions/android-unit-test/badge.png?branch=master)](https://coveralls.io/r/JCAndKSolutions/android-unit-test?branch=master)
+[![Coverage Status](https://coveralls.io/repos/JCAndKSolutions/android-unit-test/badge.svg?branch=master)](https://coveralls.io/r/JCAndKSolutions/android-unit-test?branch=master)
 
 A Gradle plugin to add unit testing to the Android's plugin. Prepared for Robolectric.
+
+Deprecation Notice
+------------------
+**Since version 1.1 of the Android Gradle plugin, unit tests in JVM are natively supported. That is why I'm deprecating this plugin and won't be maintaining it further, this means no bug fixes nor enhancements. Thanks for your continuous support all these days.**
 
 Usage
 -----
@@ -127,7 +131,7 @@ Requirements
 - An Android app or library that builds with Gradle.
 
 Running the Sample App
--------------------
+----------------------
 To run the sample app you'll need to first install the SNAPSHOT version of this plugin. This is easily done with a simple instruction:
 
 ```bash
